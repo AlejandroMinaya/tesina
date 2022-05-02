@@ -6,15 +6,16 @@ Juan Alejandro Alcántara Minaya
 Feb - Jun 2022
 """
 from sklearn.model_selection import train_test_split
+from sklearn_crfsuite import metrics
+from sklearn_crfsuite import scorers
 from sys import stdout
 import csv
+import joblib
 import logging as _logging
-import pandas as pd
 import numpy as np
-import sklearn_crfsuite
-from sklearn_crfsuite import scorers
-from sklearn_crfsuite import metrics
+import pandas as pd
 import random
+import sklearn_crfsuite
 
 
 def docs_to_features(ids, df):
@@ -56,7 +57,8 @@ def word_to_features(doc, idx):
         "word.len": len(word),
         "word.first_letter": word[0],
         "word.last_letter": word[:-1],
-        "word.syllable_count": syllable_count(word_lower)
+        "word.syllable_count": syllable_count(word_lower),
+        "word.has_comma": ("," in word)
     }
     if idx > 0:
         prev_word = str(doc[idx-1])
@@ -66,7 +68,8 @@ def word_to_features(doc, idx):
             "-1:word.isdigit": prev_word.isdigit(),
             "-1:word.first_letter": prev_word[0],
             "-1:word.last_letter": prev_word[-1],
-            "-1:word.syllable_count": syllable_count(prev_word_lower)
+            "-1:word.syllable_count": syllable_count(prev_word_lower),
+            "-1:word.has_comma": ("," in prev_word)
         })
     if idx < len(doc) - 1:
         next_word = str(doc[idx+1])
@@ -76,7 +79,8 @@ def word_to_features(doc, idx):
             "+1:word.isdigit": next_word.isdigit(),
             "+1:word.first_letter": next_word[0],
             "+1:word.last_letter": next_word[-1],
-            "+1:word.syllable_count": syllable_count(next_word_lower)
+            "+1:word.syllable_count": syllable_count(next_word_lower),
+            "+1:word.has_comma": ("," in next_word)
         })
     return features
 
@@ -115,4 +119,5 @@ if __name__ == "__main__":
     labels = list(crf.classes_)
     y_pred = crf.predict(x_test)
     print(metrics.flat_classification_report(y_test, y_pred, labels=labels))
+    joblib.dump(crf, "model.pkl", compress=9)
 
