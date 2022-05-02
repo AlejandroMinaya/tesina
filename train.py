@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn_crfsuite import metrics
 from sklearn_crfsuite import scorers
 from sys import stdout
+from time import process_time
 import csv
 import joblib
 import logging as _logging
@@ -16,6 +17,7 @@ import numpy as np
 import pandas as pd
 import random
 import sklearn_crfsuite
+import warnings
 
 
 def docs_to_features(ids, df):
@@ -58,7 +60,10 @@ def word_to_features(doc, idx):
         "word.first_letter": word[0],
         "word.last_letter": word[:-1],
         "word.syllable_count": syllable_count(word_lower),
-        "word.has_comma": ("," in word)
+        "word.has_comma": ("," in word),
+        "word.has_dash": ("-" in word),
+        "word.first_three": word[:3],
+        "word.last_three": word[-3:]
     }
     if idx > 0:
         prev_word = str(doc[idx-1])
@@ -69,7 +74,10 @@ def word_to_features(doc, idx):
             "-1:word.first_letter": prev_word[0],
             "-1:word.last_letter": prev_word[-1],
             "-1:word.syllable_count": syllable_count(prev_word_lower),
-            "-1:word.has_comma": ("," in prev_word)
+            "-1:word.has_comma": ("," in prev_word),
+            "-1:word.has_dash": ("-" in prev_word),
+            "-1:word.first_three": prev_word[:3],
+            "-1:word.last_three": prev_word[-3:]
         })
     if idx < len(doc) - 1:
         next_word = str(doc[idx+1])
@@ -80,12 +88,17 @@ def word_to_features(doc, idx):
             "+1:word.first_letter": next_word[0],
             "+1:word.last_letter": next_word[-1],
             "+1:word.syllable_count": syllable_count(next_word_lower),
-            "+1:word.has_comma": ("," in next_word)
+            "+1:word.has_comma": ("," in next_word),
+            "+1:word.has_dash": ("-" in next_word),
+            "+1:word.first_three": next_word[:3],
+            "+1:word.last_three": next_word[-3:]
         })
     return features
 
 
 if __name__ == "__main__":
+    # Turn off warnings
+    warnings.filterwarnings("error")
     # Logger set-up
     logging = _logging.getLogger()
     logging.setLevel(0)
@@ -102,7 +115,7 @@ if __name__ == "__main__":
     random.shuffle(doc_ids)
 
     x_raw_train_ids, x_raw_test_ids, _, _ =\
-        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.2)
+        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.25)
     x_train = docs_to_features(x_raw_train_ids, df)
     y_train = docs_to_labels(x_raw_train_ids, df)
     x_test = docs_to_features(x_raw_test_ids, df)
@@ -110,13 +123,16 @@ if __name__ == "__main__":
 
     crf = sklearn_crfsuite.CRF(
         algorithm="lbfgs",
-        c1=0.1,
-        c2=0.1,
-        max_iterations=100,
+        c1=0.05,
+        c2=0.05,
+        max_iterations=300,
         all_possible_transitions=True
     )
+    train_start = process_time()
     crf.fit(x_train, y_train)
-    labels = list(crf.classes_)
+    logging.info(f"CRF training: {process_time() - train_start}s")
+    labels = sorted(list(crf.classes_))
+    labels.remove("UNKNOWN")
     y_pred = crf.predict(x_test)
     print(metrics.flat_classification_report(y_test, y_pred, labels=labels))
     joblib.dump(crf, "model.pkl", compress=9)
