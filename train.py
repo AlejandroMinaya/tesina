@@ -102,7 +102,7 @@ if __name__ == "__main__":
     random.shuffle(doc_ids)
 
     x_raw_train_ids, x_raw_test_ids, _, _ =\
-        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.33)
+        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.2)
     x_train = docs_to_features(x_raw_train_ids, df)
     y_train = docs_to_labels(x_raw_train_ids, df)
     x_test = docs_to_features(x_raw_test_ids, df)
