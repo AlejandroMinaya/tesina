@@ -51,7 +51,7 @@ def get_word_labels(doc, doc_df):
             (doc_df["start"] <= pos_start)
             & (doc_df["end"] >= pos_start)
         ]
-        label = matches['label'].iloc[0] if matches.shape[0] > 0 else "-"
+        label = matches['label'].iloc[0] if matches.shape[0] > 0 else "Regular"
         data.append((word, label))
         pos_start += len(word) + 1
     return data
@@ -89,6 +89,7 @@ if __name__ == "__main__":
     logging.info(f"Label all words: {process_time() - start}s")
     with open("output.csv", "w") as output:
         csvwriter = csv.writer(output)
+        csvwriter.writerow(["doc_id","token", "label"])
         for doc_id, doc in enumerate(results):
             [csvwriter.writerow([doc_id, res[0], res[1]]) for res in doc]
 
