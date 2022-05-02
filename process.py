@@ -9,6 +9,7 @@ from os import path
 from sys import stdout
 from time import process_time
 from multiprocessing import Pool, TimeoutError
+import csv
 import json
 import logging as _logging
 import pandas as pd
@@ -86,3 +87,8 @@ if __name__ == "__main__":
         ]
         results = [res.get(timeout=10) for res in _results]
     logging.info(f"Label all words: {process_time() - start}s")
+    with open("output.csv", "w") as output:
+        csvwriter = csv.writer(output)
+        for doc_id, doc in enumerate(results):
+            [csvwriter.writerow([doc_id, res[0], res[1]]) for res in doc]
+
