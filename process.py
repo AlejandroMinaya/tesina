@@ -69,7 +69,8 @@ if __name__ == "__main__":
     ))
     logging.addHandler(handler)
 
-    data_path = input("Enter the NER data path (JSON): ")
+    #data_path = input("Enter the NER data path (JSON): ")
+    data_path = "resume_dataset.json"
     json_data = open_json(data_path)
     # If there is no data, exit with error code
     if json_data is None:
