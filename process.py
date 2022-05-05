@@ -51,7 +51,9 @@ def get_word_labels(doc, doc_df):
             (doc_df["start"] <= pos_start)
             & (doc_df["end"] >= pos_start)
         ]
-        label = matches['label'].iloc[0] if matches.shape[0] > 0 else "nan"
+        label = matches['label'].iloc[0]\
+            if matches.shape[0] > 0 and matches['label'].iloc[0] != "UNKNOWN"\
+            else None
         data.append((word, label))
         pos_start += len(word) + 1
     return data

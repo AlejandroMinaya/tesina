@@ -12,12 +12,15 @@ from sklearn_crfsuite import metrics
 from sklearn_crfsuite import scorers
 from sys import stdout
 from time import process_time
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import csv
 import joblib
 import logging as _logging
 import numpy as np
 import pandas as pd
 import random
+import nltk
 import sklearn_crfsuite
 import warnings
 import re
@@ -35,6 +38,7 @@ ABBR_MONTHS = [
     "aug", "sep", "oct",
     "nov", "dec"
 ]
+STOP_WORDS = set(stopwords.words("english"))
 
 def print_transitions(trans_features):
     [
@@ -92,8 +96,14 @@ def word_to_features(doc, idx):
         "word.syllable_count": syllable_count(word_lower),
         "word.has_comma": ("," in word),
         "word.has_dash": ("-" in word),
-        "word.has_slash": ("/" in word)
+        "word.has_slash": ("/" in word),
+        "word.last_close_bracket": (")" in word[-1]),
+        "word.first_open_bracket": ("(" == word[0])
     }
+    if word not in STOP_WORDS:
+        features.update({
+            "word.pos_tag": nltk.pos_tag(word_tokenize(word))[0][1]
+        })
     if idx > 0:
         prev_word = str(doc[idx-1])
         prev_word_lower = prev_word.lower()
@@ -106,8 +116,12 @@ def word_to_features(doc, idx):
             "-1:word.syllable_count": syllable_count(prev_word_lower),
             "-1:word.has_comma": ("," in prev_word),
             "-1:word.has_dash": ("-" in prev_word),
-            "-1:word.has_slash": ("/" in prev_word),
+            "-1:word.has_slash": ("/" in prev_word)
         })
+        if prev_word not in STOP_WORDS:
+            features.update({
+                "-1:word.pos_tag": nltk.pos_tag(word_tokenize(prev_word))[0][1]
+            })
     if idx < len(doc) - 1:
         next_word = str(doc[idx+1])
         next_word_lower = next_word.lower()
@@ -120,12 +134,18 @@ def word_to_features(doc, idx):
             "+1:word.syllable_count": syllable_count(next_word_lower),
             "+1:word.has_comma": ("," in next_word),
             "+1:word.has_dash": ("-" in next_word),
-            "+1:word.has_slash": ("/" in next_word),
+            "+1:word.has_slash": ("/" in next_word)
         })
+        if next_word not in STOP_WORDS:
+            features.update({
+                "+1:word.pos_tag": nltk.pos_tag(word_tokenize(next_word))[0][1]
+            })
     return features
 
 
 if __name__ == "__main__":
+    # Dowload nltk kit
+    nltk.download("punkt")
     # Turn off warnings
     warnings.filterwarnings("error")
     # Logger set-up
@@ -145,7 +165,7 @@ if __name__ == "__main__":
     random.shuffle(doc_ids)
 
     x_raw_train_ids, x_raw_test_ids, _, _ =\
-        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.25)
+        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.2)
     x_train = docs_to_features(x_raw_train_ids, df)
     y_train = docs_to_labels(x_raw_train_ids, df)
     x_test = docs_to_features(x_raw_test_ids, df)
@@ -165,7 +185,19 @@ if __name__ == "__main__":
 
     # Reports
     y_pred = crf.predict(x_test)
-    print(metrics.flat_classification_report(y_test, y_pred))
+    print(sorted(crf.classes_))
+    flat_y_test = []
+    for y_array in y_test:
+        for y in y_array:
+            flat_y_test.append(y)
+    flat_y_pred = []
+    for y_array in y_pred:
+        for y in y_array:
+            flat_y_pred.append(y)
+
+    print(metrics.flat_classification_report(
+        y_test, y_pred, labels=sorted(np.unique(flat_y_pred))
+    ))
     trans_features = Counter(crf.transition_features_)
     print("Top most likely transitions")
     print_transitions(trans_features.most_common(20))
