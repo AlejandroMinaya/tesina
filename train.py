@@ -98,7 +98,8 @@ def word_to_features(doc, idx):
         "word.has_dash": ("-" in word),
         "word.has_slash": ("/" in word),
         "word.last_close_bracket": (")" in word[-1]),
-        "word.first_open_bracket": ("(" == word[0])
+        "word.first_open_bracket": ("(" == word[0]),
+        "word.lower": word_lower
     }
     if word not in STOP_WORDS:
         features.update({
@@ -146,6 +147,8 @@ def word_to_features(doc, idx):
 if __name__ == "__main__":
     # Dowload nltk kit
     nltk.download("punkt")
+    nltk.download("stopwords")
+    nltk.download("averaged_perceptron_tagger")
     # Turn off warnings
     warnings.filterwarnings("error")
     # Logger set-up
