@@ -17,6 +17,30 @@ import re
 
 WORKERS = 16
 
+def open_json(data_path):
+    try:
+        with open(data_path, "r") as data_file:
+            return json.load(data_file)
+    except FileNotFoundError:
+        logging.error(f"Unable to find '{path.abspath(data_path)}'")
+        return None
+
+def get_annotations_frame(json_data):
+    df = pd.DataFrame({})
+    for idx, doc in enumerate(json_data):
+        for annotation in doc["annotation"]:
+            label = annotation["label"][0] if len(annotation["label"]) > 0 else None
+            df = pd.concat([df,
+                pd.DataFrame([{
+                    "doc_id": idx,
+                    "start": annotation["points"][0]["start"],
+                    "end": annotation["points"][0]["end"],
+                    "label": label
+                }])
+            ])
+    return df
+
+
 def get_word_labels(doc, doc_df):
     data = []
     words = re.finditer(r"\S+", doc)
@@ -48,33 +72,21 @@ if __name__ == "__main__":
     logging.addHandler(handler)
 
     #data_path = input("Enter the NER data path (JSON): ")
-    data_path = "../spanish_annotated_docs/admin.jsonl"
-    with open(data_path, "r") as data_file:
-        df = pd.DataFrame({})
-        while (len(raw_record := data_file.readline()) > 0):
-            record = json.loads(raw_record)
-            doc_id = record["id"]
-            for annotation in record["label"]["entities"]:
-                df = pd.concat([df,
-                    pd.DataFrame([{
-                        "doc_id": doc_id,
-                        "doc": record["data"],
-                        "start": annotation["start_offset"],
-                        "end": annotation["end_offset"],
-                        "label": annotation["label"]
-                    }])
-                ])
-    doc_ids = df["doc_id"].unique()
+    data_path = "resume_dataset.json"
+    json_data = open_json(data_path)
+    # If there is no data, exit with error code
+    if json_data is None:
+        exit(-1)
 
     start = process_time()
+    df = get_annotations_frame(json_data)
     logging.info(f"Annotation Frame: {process_time() - start}s")
     start = process_time()
     with Pool(processes=WORKERS) as pool:
         _results = [
             pool.apply_async(get_word_labels, (
-                df[df["doc_id"] == doc_id]["doc"].iloc[0],
-                df[df["doc_id"] == doc_id]
-            )) for doc_id in doc_ids
+                doc["content"], df[df["doc_id"] == doc_id]
+            )) for doc_id, doc in enumerate(json_data)
         ]
         results = [res.get(timeout=10) for res in _results]
     logging.info(f"Label all words: {process_time() - start}s")

@@ -20,7 +20,7 @@ import logging as _logging
 import numpy as np
 import pandas as pd
 import random
-import nltk
+# import nltk
 import sklearn_crfsuite
 import warnings
 import re
@@ -38,7 +38,7 @@ ABBR_MONTHS = [
     "aug", "sep", "oct",
     "nov", "dec"
 ]
-STOP_WORDS = set(stopwords.words("english"))
+# STOP_WORDS = set(stopwords.words("english"))
 
 def print_transitions(trans_features):
     [
@@ -97,14 +97,14 @@ def word_to_features(doc, idx):
         "word.has_comma": ("," in word),
         "word.has_dash": ("-" in word),
         "word.has_slash": ("/" in word),
+        "word.has_at": ("@" in word),
         "word.last_close_bracket": (")" in word[-1]),
-        "word.first_open_bracket": ("(" == word[0]),
-        "word.lower": word_lower
+        "word.first_open_bracket": ("(" == word[0])
     }
-    if word not in STOP_WORDS:
-        features.update({
-            "word.pos_tag": nltk.pos_tag(word_tokenize(word))[0][1]
-        })
+    # if word not in STOP_WORDS:
+    #     features.update({
+    #         "word.pos_tag": nltk.pos_tag(word_tokenize(word))[0][1]
+    #     })
     if idx > 0:
         prev_word = str(doc[idx-1])
         prev_word_lower = prev_word.lower()
@@ -117,12 +117,13 @@ def word_to_features(doc, idx):
             "-1:word.syllable_count": syllable_count(prev_word_lower),
             "-1:word.has_comma": ("," in prev_word),
             "-1:word.has_dash": ("-" in prev_word),
-            "-1:word.has_slash": ("/" in prev_word)
+            "-1:word.has_slash": ("/" in prev_word),
+            "-1:word.lower": prev_word_lower
         })
-        if prev_word not in STOP_WORDS:
-            features.update({
-                "-1:word.pos_tag": nltk.pos_tag(word_tokenize(prev_word))[0][1]
-            })
+        # if prev_word not in STOP_WORDS:
+        #     features.update({
+        #         "-1:word.pos_tag": nltk.pos_tag(word_tokenize(prev_word))[0][1]
+        #     })
     if idx < len(doc) - 1:
         next_word = str(doc[idx+1])
         next_word_lower = next_word.lower()
@@ -135,20 +136,21 @@ def word_to_features(doc, idx):
             "+1:word.syllable_count": syllable_count(next_word_lower),
             "+1:word.has_comma": ("," in next_word),
             "+1:word.has_dash": ("-" in next_word),
-            "+1:word.has_slash": ("/" in next_word)
+            "+1:word.has_slash": ("/" in next_word),
+            "+1:word.lower": next_word_lower
         })
-        if next_word not in STOP_WORDS:
-            features.update({
-                "+1:word.pos_tag": nltk.pos_tag(word_tokenize(next_word))[0][1]
-            })
+        # if next_word not in STOP_WORDS:
+        #     features.update({
+        #         "+1:word.pos_tag": nltk.pos_tag(word_tokenize(next_word))[0][1]
+        #     })
     return features
 
 
 if __name__ == "__main__":
     # Dowload nltk kit
-    nltk.download("punkt")
-    nltk.download("stopwords")
-    nltk.download("averaged_perceptron_tagger")
+    # nltk.download("punkt")
+    # nltk.download("stopwords")
+    # nltk.download("averaged_perceptron_tagger")
     # Turn off warnings
     warnings.filterwarnings("error")
     # Logger set-up
@@ -178,12 +180,13 @@ if __name__ == "__main__":
         algorithm="lbfgs",
         c1=0.05,
         c2=0.05,
-        max_iterations=300,
-        all_possible_transitions=True
+        max_iterations=1000,
+        all_possible_transitions=True,
+        all_possible_states=True,
+        verbose=True
     )
     train_start = process_time()
     crf.fit(x_train, y_train)
-    logging.info(f"CRF training: {process_time() - train_start}s")
     joblib.dump(crf, "model.pkl", compress=9)
 
     # Reports
@@ -197,6 +200,7 @@ if __name__ == "__main__":
     for y_array in y_pred:
         for y in y_array:
             flat_y_pred.append(y)
+    print(np.unique(flat_y_pred))
 
     print(metrics.flat_classification_report(
         y_test, y_pred, labels=sorted(np.unique(flat_y_pred))
