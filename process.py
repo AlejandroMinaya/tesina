@@ -19,7 +19,7 @@ WORKERS = 16
 
 def get_word_labels(doc, doc_df):
     data = []
-    words = re.finditer(r"\S+", doc)
+    words = re.finditer(r"[^\s.,;:?/\-!)(•]+", doc)
     for _word in words:
         pos_start = _word.start()
         word = _word.group()
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     logging.addHandler(handler)
 
     #data_path = input("Enter the NER data path (JSON): ")
-    data_path = "../spanish_annotated_docs/admin.jsonl"
+    data_path = "../spanish_annotated_docs_v2/admin.jsonl"
     with open(data_path, "r") as data_file:
         df = pd.DataFrame({})
         while (len(raw_record := data_file.readline()) > 0):

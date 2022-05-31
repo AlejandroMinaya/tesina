@@ -178,8 +178,8 @@ if __name__ == "__main__":
 
     crf = sklearn_crfsuite.CRF(
         algorithm="lbfgs",
-        c1=0.05,
-        c2=0.05,
+        c1=0,
+        c2=0,
         max_iterations=1000,
         all_possible_transitions=True,
         all_possible_states=True,
