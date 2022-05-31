@@ -18,7 +18,7 @@ if __name__ == "__main__":
     with open(input_path) as f:
         words = [
             match.group()\
-            for match in re.finditer("\S+",f.read())
+            for match in re.finditer(r"[^\s.➢\",.:;)(\-\–•“”*']+",f.read())
         ]
     x = [
         word_to_features(words, i)\

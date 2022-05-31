@@ -5,25 +5,26 @@ Tesina
 Juan Alejandro Alcántara Minaya
 Feb - Jun 2022
 """
+# import nltk
 from collections import Counter
 from datetime import date
-from sklearn.model_selection import train_test_split
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from sklearn.metrics import make_scorer
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn_crfsuite import metrics
-from sklearn_crfsuite import scorers
 from sys import stdout
 from time import process_time
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 import csv
 import joblib
 import logging as _logging
 import numpy as np
 import pandas as pd
 import random
-# import nltk
-import sklearn_crfsuite
-import warnings
 import re
+import scipy
+from sklearn_crfsuite import CRF
+import warnings
 
 CURR_YEAR = date.today().year
 FULL_MONTHS = [
@@ -86,7 +87,6 @@ def word_to_features(doc, idx):
     word = str(doc[idx])
     word_lower = word.lower()
     features = {
-        "bias": 1.0,
         "word.istitle":  word.istitle(),
         "word.isdigit": word.isdigit(),
         "word.is_year": (word.isdigit() and int(word) >= 1900),
@@ -94,12 +94,12 @@ def word_to_features(doc, idx):
         "word.is_abbr_month": (word_lower in ABBR_MONTHS),
         "word.is_full_month": (word_lower in FULL_MONTHS),
         "word.syllable_count": syllable_count(word_lower),
-        "word.has_comma": ("," in word),
-        "word.has_dash": ("-" in word),
-        "word.has_slash": ("/" in word),
+        # "word.has_comma": ("," in word),
+        # "word.has_dash": ("-" in word),
+        # "word.has_slash": ("/" in word),
         "word.has_at": ("@" in word),
-        "word.last_close_bracket": (")" in word[-1]),
-        "word.first_open_bracket": ("(" == word[0])
+        # "word.last_close_bracket": (")" in word[-1]),
+        # "word.first_open_bracket": ("(" == word[0])
     }
     # if word not in STOP_WORDS:
     #     features.update({
@@ -115,11 +115,25 @@ def word_to_features(doc, idx):
             "-1:word.is_full_month": (prev_word_lower in FULL_MONTHS),
             "-1:word.isdigit": prev_word.isdigit(),
             "-1:word.syllable_count": syllable_count(prev_word_lower),
-            "-1:word.has_comma": ("," in prev_word),
-            "-1:word.has_dash": ("-" in prev_word),
-            "-1:word.has_slash": ("/" in prev_word),
-            "-1:word.lower": prev_word_lower
+            # "-1:word.has_comma": ("," in prev_word),
+            # "-1:word.has_dash": ("-" in prev_word),
+            # "-1:word.has_slash": ("/" in prev_word),
+            "-1:word.lower": prev_word_lower,
+            "-1:word.bigram": prev_word_lower + " " + word_lower
         })
+        if idx > 1:
+            prev_prev_word = str(doc[idx-2])
+            prev_prev_word_lower = prev_prev_word.lower()
+            features.update({
+                "-2:word.istitle": prev_prev_word.istitle(),
+                "-2:word.is_year": (prev_prev_word.isdigit() and int(prev_prev_word) >= 1900),
+                "-2:word.is_abbr_month": (prev_prev_word_lower in ABBR_MONTHS),
+                "-2:word.is_full_month": (prev_prev_word_lower in FULL_MONTHS),
+                "-2:word.isdigit": prev_prev_word.isdigit(),
+                "-2:word.syllable_count": syllable_count(prev_prev_word_lower),
+                "-2:word.lower": prev_prev_word_lower,
+                "-2:word.trigram": prev_prev_word_lower + " " +  prev_word_lower + " " + word_lower
+            })
         # if prev_word not in STOP_WORDS:
         #     features.update({
         #         "-1:word.pos_tag": nltk.pos_tag(word_tokenize(prev_word))[0][1]
@@ -134,11 +148,25 @@ def word_to_features(doc, idx):
             "+1:word.is_full_month": (next_word_lower in FULL_MONTHS),
             "+1:word.isdigit": next_word.isdigit(),
             "+1:word.syllable_count": syllable_count(next_word_lower),
-            "+1:word.has_comma": ("," in next_word),
-            "+1:word.has_dash": ("-" in next_word),
-            "+1:word.has_slash": ("/" in next_word),
-            "+1:word.lower": next_word_lower
+            # "+1:word.has_comma": ("," in next_word),
+            # "+1:word.has_dash": ("-" in next_word),
+            # "+1:word.has_slash": ("/" in next_word),
+            "+1:word.lower": next_word_lower,
+            "+1:word.bigram": word_lower + " " + next_word_lower
         })
+        if idx < len(doc) - 2:
+            next_next_word = str(doc[idx+2])
+            next_next_word_lower = next_next_word.lower()
+            features.update({
+                "+2:word.istitle": next_next_word.istitle(),
+                "+2:word.is_year": (next_next_word.isdigit() and int(next_next_word) >= 1900),
+                "+2:word.is_abbr_month": (next_next_word_lower in ABBR_MONTHS),
+                "+2:word.is_full_month": (next_next_word_lower in FULL_MONTHS),
+                "+2:word.isdigit": next_next_word.isdigit(),
+                "+2:word.syllable_count": syllable_count(next_next_word_lower),
+                "+2:word.lower": next_next_word_lower,
+                "+2:word.trigram": word_lower + " " + next_word_lower + " " + next_next_word_lower
+            })
         # if next_word not in STOP_WORDS:
         #     features.update({
         #         "+1:word.pos_tag": nltk.pos_tag(word_tokenize(next_word))[0][1]
@@ -170,37 +198,54 @@ if __name__ == "__main__":
     random.shuffle(doc_ids)
 
     x_raw_train_ids, x_raw_test_ids, _, _ =\
-        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.2)
+        train_test_split(doc_ids, [0]*len(doc_ids), test_size=.25)
     x_train = docs_to_features(x_raw_train_ids, df)
     y_train = docs_to_labels(x_raw_train_ids, df)
     x_test = docs_to_features(x_raw_test_ids, df)
     y_test = docs_to_labels(x_raw_test_ids, df)
 
-    crf = sklearn_crfsuite.CRF(
+    flat_y_test = []
+    for y_array in y_test:
+        for y in y_array:
+            flat_y_test.append(y)
+
+    labels = np.unique(flat_y_test)
+
+    crf = CRF(
         algorithm="lbfgs",
-        c1=0,
-        c2=0,
-        max_iterations=1000,
+        max_iterations=100,
         all_possible_transitions=True,
         all_possible_states=True,
-        verbose=True
+    )
+    params_space = {
+        "c1": scipy.stats.expon(scale=0.5),
+        "c2": scipy.stats.expon(scale=0.05)
+    }
+    f1_scorer = make_scorer(
+        metrics.flat_f1_score,
+        average="weighted",
+        labels=labels
+    )
+    rs = RandomizedSearchCV(
+        crf, params_space,
+        cv=3, verbose=4,
+        n_jobs=-1, n_iter=10,
+        scoring=f1_scorer
     )
     train_start = process_time()
-    crf.fit(x_train, y_train)
+    rs.fit(x_train, y_train)
+    print("Best parameters:",rs.best_params_)
+    print("Best CV score:",rs.best_score_)
+    crf = rs.best_estimator_
     joblib.dump(crf, "model.pkl", compress=9)
 
     # Reports
     y_pred = crf.predict(x_test)
     print(sorted(crf.classes_))
-    flat_y_test = []
-    for y_array in y_test:
-        for y in y_array:
-            flat_y_test.append(y)
     flat_y_pred = []
     for y_array in y_pred:
         for y in y_array:
             flat_y_pred.append(y)
-    print(np.unique(flat_y_pred))
 
     print(metrics.flat_classification_report(
         y_test, y_pred, labels=sorted(np.unique(flat_y_pred))

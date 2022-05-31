@@ -4,4 +4,4 @@
 dataset/
 *.csv
 *.pkl
-*input.txt
+*input*.txt

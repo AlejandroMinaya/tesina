@@ -19,7 +19,8 @@ WORKERS = 16
 
 def get_word_labels(doc, doc_df):
     data = []
-    words = re.finditer(r"[^\s.,;:?/\-!)(•]+", doc)
+    # words = re.finditer(r"[^\s.,;:?/!)(•-]+", doc)
+    words = re.finditer(r"[^\s.➢\",.:;)(\-\–•“”*']+", doc)
     for _word in words:
         pos_start = _word.start()
         word = _word.group()
@@ -28,7 +29,7 @@ def get_word_labels(doc, doc_df):
             & (doc_df["end"] >= pos_start)
         ]
         label = matches['label'].iloc[0]\
-            if matches.shape[0] > 0 and matches['label'].iloc[0] != "UNKNOWN"\
+            if matches.shape[0] > 0 and matches['label'].iloc[0] != "JOB_DESCRIPTION"\
             else None
         data.append((word, label))
         pos_start += len(word) + 1
