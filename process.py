@@ -20,7 +20,7 @@ WORKERS = 16
 def get_word_labels(doc, doc_df):
     data = []
     # words = re.finditer(r"[^\s.,;:?/!)(•-]+", doc)
-    words = re.finditer(r"[^\s.➢\",.:;)(\-\–•“”*']+", doc)
+    words = re.finditer(r"[^_\s.➢\",.:;)(\-\–•“”*']+", doc)
     for _word in words:
         pos_start = _word.start()
         word = _word.group()

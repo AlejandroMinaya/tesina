@@ -8,8 +8,8 @@ Feb - Jun 2022
 # import nltk
 from collections import Counter
 from datetime import date
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+# from nltk.corpus import stopwords
+# from nltk.tokenize import word_tokenize
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn_crfsuite import metrics
@@ -94,17 +94,10 @@ def word_to_features(doc, idx):
         "word.is_abbr_month": (word_lower in ABBR_MONTHS),
         "word.is_full_month": (word_lower in FULL_MONTHS),
         "word.syllable_count": syllable_count(word_lower),
-        # "word.has_comma": ("," in word),
-        # "word.has_dash": ("-" in word),
-        # "word.has_slash": ("/" in word),
-        "word.has_at": ("@" in word),
-        # "word.last_close_bracket": (")" in word[-1]),
-        # "word.first_open_bracket": ("(" == word[0])
+        "word.first_three": word_lower[:3],
+        "word.last_three": word_lower[-3:],
+        "word.has_at": ("@" in word)
     }
-    # if word not in STOP_WORDS:
-    #     features.update({
-    #         "word.pos_tag": nltk.pos_tag(word_tokenize(word))[0][1]
-    #     })
     if idx > 0:
         prev_word = str(doc[idx-1])
         prev_word_lower = prev_word.lower()
@@ -115,29 +108,11 @@ def word_to_features(doc, idx):
             "-1:word.is_full_month": (prev_word_lower in FULL_MONTHS),
             "-1:word.isdigit": prev_word.isdigit(),
             "-1:word.syllable_count": syllable_count(prev_word_lower),
-            # "-1:word.has_comma": ("," in prev_word),
-            # "-1:word.has_dash": ("-" in prev_word),
-            # "-1:word.has_slash": ("/" in prev_word),
+            "-1:word.first_three": prev_word_lower[:3],
+            "-1:word.last_three": prev_word_lower[-3:],
             "-1:word.lower": prev_word_lower,
             "-1:word.bigram": prev_word_lower + " " + word_lower
         })
-        if idx > 1:
-            prev_prev_word = str(doc[idx-2])
-            prev_prev_word_lower = prev_prev_word.lower()
-            features.update({
-                "-2:word.istitle": prev_prev_word.istitle(),
-                "-2:word.is_year": (prev_prev_word.isdigit() and int(prev_prev_word) >= 1900),
-                "-2:word.is_abbr_month": (prev_prev_word_lower in ABBR_MONTHS),
-                "-2:word.is_full_month": (prev_prev_word_lower in FULL_MONTHS),
-                "-2:word.isdigit": prev_prev_word.isdigit(),
-                "-2:word.syllable_count": syllable_count(prev_prev_word_lower),
-                "-2:word.lower": prev_prev_word_lower,
-                "-2:word.trigram": prev_prev_word_lower + " " +  prev_word_lower + " " + word_lower
-            })
-        # if prev_word not in STOP_WORDS:
-        #     features.update({
-        #         "-1:word.pos_tag": nltk.pos_tag(word_tokenize(prev_word))[0][1]
-        #     })
     if idx < len(doc) - 1:
         next_word = str(doc[idx+1])
         next_word_lower = next_word.lower()
@@ -148,38 +123,15 @@ def word_to_features(doc, idx):
             "+1:word.is_full_month": (next_word_lower in FULL_MONTHS),
             "+1:word.isdigit": next_word.isdigit(),
             "+1:word.syllable_count": syllable_count(next_word_lower),
-            # "+1:word.has_comma": ("," in next_word),
-            # "+1:word.has_dash": ("-" in next_word),
-            # "+1:word.has_slash": ("/" in next_word),
+            "+1:word.first_three": next_word_lower[:3],
+            "+1:word.last_three": next_word_lower[-3:],
             "+1:word.lower": next_word_lower,
             "+1:word.bigram": word_lower + " " + next_word_lower
         })
-        if idx < len(doc) - 2:
-            next_next_word = str(doc[idx+2])
-            next_next_word_lower = next_next_word.lower()
-            features.update({
-                "+2:word.istitle": next_next_word.istitle(),
-                "+2:word.is_year": (next_next_word.isdigit() and int(next_next_word) >= 1900),
-                "+2:word.is_abbr_month": (next_next_word_lower in ABBR_MONTHS),
-                "+2:word.is_full_month": (next_next_word_lower in FULL_MONTHS),
-                "+2:word.isdigit": next_next_word.isdigit(),
-                "+2:word.syllable_count": syllable_count(next_next_word_lower),
-                "+2:word.lower": next_next_word_lower,
-                "+2:word.trigram": word_lower + " " + next_word_lower + " " + next_next_word_lower
-            })
-        # if next_word not in STOP_WORDS:
-        #     features.update({
-        #         "+1:word.pos_tag": nltk.pos_tag(word_tokenize(next_word))[0][1]
-        #     })
     return features
 
 
 if __name__ == "__main__":
-    # Dowload nltk kit
-    # nltk.download("punkt")
-    # nltk.download("stopwords")
-    # nltk.download("averaged_perceptron_tagger")
-    # Turn off warnings
     warnings.filterwarnings("error")
     # Logger set-up
     logging = _logging.getLogger()
@@ -228,8 +180,8 @@ if __name__ == "__main__":
     )
     rs = RandomizedSearchCV(
         crf, params_space,
-        cv=3, verbose=4,
-        n_jobs=-1, n_iter=10,
+        cv=5, verbose=5,
+        n_jobs=-1, n_iter=50,
         scoring=f1_scorer
     )
     train_start = process_time()
@@ -237,6 +189,7 @@ if __name__ == "__main__":
     print("Best parameters:",rs.best_params_)
     print("Best CV score:",rs.best_score_)
     crf = rs.best_estimator_
+    # crf.fit(x_train, y_train)
     joblib.dump(crf, "model.pkl", compress=9)
 
     # Reports
