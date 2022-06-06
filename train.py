@@ -26,19 +26,30 @@ import scipy
 from sklearn_crfsuite import CRF
 import warnings
 
-CURR_YEAR = date.today().year
 FULL_MONTHS = [
-    "january", "february", "march",
-    "april", "may", "june", "july",
-    "august", "september", "october",
-    "november", "december"
+    "enero", "febrero", "marzo",
+    "abril", "mayo", "junio", "julio",
+    "agosto", "septiembre", "octubre",
+    "noviembre", "diciembre"
 ]
 ABBR_MONTHS = [
-    "jan", "feb", "mar",
-    "apr", "may", "jun", "jul",
-    "aug", "sep", "oct",
+    "ene", "feb", "mar",
+    "abr", "may", "jun", "jul",
+    "ago", "sep", "oct",
     "nov", "dec"
 ]
+## FULL_MONTHS = [
+#     "january", "february", "march",
+#     "april", "may", "june", "july",
+#     "august", "september", "october",
+#     "november", "december"
+# ]
+# ABBR_MONTHS = [
+#     "jan", "feb", "mar",
+#     "apr", "may", "jun", "jul",
+#     "aug", "sep", "oct",
+#     "nov", "dec"
+# ]
 # STOP_WORDS = set(stopwords.words("english"))
 
 def print_transitions(trans_features):
@@ -89,7 +100,9 @@ def word_to_features(doc, idx):
     features = {
         "word.istitle":  word.istitle(),
         "word.isdigit": word.isdigit(),
-        "word.is_year": (word.isdigit() and int(word) >= 1900),
+        "word.is_year": (
+            word.isdigit() and int(word) >= 1900 and int(word) >= 2100
+        ),
         "word.len": len(word),
         "word.is_abbr_month": (word_lower in ABBR_MONTHS),
         "word.is_full_month": (word_lower in FULL_MONTHS),
@@ -103,7 +116,10 @@ def word_to_features(doc, idx):
         prev_word_lower = prev_word.lower()
         features.update({
             "-1:word.istitle": prev_word.istitle(),
-            "-1:word.is_year": (prev_word.isdigit() and int(prev_word) >= 1900),
+            "-1:word.is_year": (
+                prev_word.isdigit() and int(prev_word) >= 1900
+                and int(prev_word) >= 2100
+            ),
             "-1:word.is_abbr_month": (prev_word_lower in ABBR_MONTHS),
             "-1:word.is_full_month": (prev_word_lower in FULL_MONTHS),
             "-1:word.isdigit": prev_word.isdigit(),
@@ -118,7 +134,10 @@ def word_to_features(doc, idx):
         next_word_lower = next_word.lower()
         features.update({
             "+1:word.istitle": next_word.istitle(),
-            "+1:word.is_year": (next_word.isdigit() and int(next_word) >= 1900),
+            "+1:word.is_year": (
+                next_word.isdigit() and int(next_word) >= 1900
+                and int(next_word) <= 2100
+            ),
             "+1:word.is_abbr_month": (next_word_lower in ABBR_MONTHS),
             "+1:word.is_full_month": (next_word_lower in FULL_MONTHS),
             "+1:word.isdigit": next_word.isdigit(),
@@ -181,7 +200,7 @@ if __name__ == "__main__":
     rs = RandomizedSearchCV(
         crf, params_space,
         cv=5, verbose=5,
-        n_jobs=-1, n_iter=50,
+        n_jobs=-1, n_iter=10,
         scoring=f1_scorer
     )
     train_start = process_time()
