@@ -200,7 +200,7 @@ if __name__ == "__main__":
     rs = RandomizedSearchCV(
         crf, params_space,
         cv=5, verbose=5,
-        n_jobs=-1, n_iter=10,
+        n_jobs=-1, n_iter=100,
         scoring=f1_scorer
     )
     train_start = process_time()
